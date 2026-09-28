@@ -1,0 +1,55 @@
+# Blueprint Render — API NestJS d'Event Prest'Art.
+# Render → New → Blueprint → choisir ce dépôt : le service est créé à partir de
+# ce fichier. Les variables `sync: false` sont demandées lors de la création.
+# Le front (dépôt Evenprestart-Web) est déployé sur Vercel, la base sur Neon.
+# Voir DEPLOIEMENT.md.
+services:
+  - type: web
+    name: eventprestart-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: master
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    # Déploie à chaque push sur master, mais seulement si la CI GitHub est verte.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PREFIX
+        value: api
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # Secrets JWT générés par Render (différents de ceux du .env local).
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # URL Neon (connexion directe, non « pooled »), avec ?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # URL publique du front Vercel, ex. https://eventprestart.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+      - key: APP_WEB_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        sync: false

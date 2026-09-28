@@ -1,0 +1,38 @@
+# CI de l'API — à chaque push sur master (et chaque pull request).
+# Render ne redéploie l'API que si ces checks sont verts
+# (autoDeployTrigger: checksPass dans render.yaml).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build NestJS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - name: Le point d'entrée de production existe
+        run: test -f dist/main.js
+
+  docker:
+    name: Image Docker (identique à Render)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t eventprestart-api .

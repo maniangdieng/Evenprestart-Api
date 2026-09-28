@@ -16,4 +16,5 @@ COPY --from=builder /usr/src/app/prisma ./prisma
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3001
-CMD ["node", "dist/main"]
+# Applique les migrations Prisma en attente avant de démarrer (idempotent).
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
