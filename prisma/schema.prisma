@@ -1,0 +1,464 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum UserRole {
+  CLIENT
+  ARTIST
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  COUNTER_OFFERED
+  CONFIRMED
+  PAID
+  COMPLETED
+  CANCELLED
+  DISPUTED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  WAVE
+  ORANGE_MONEY
+  FREE_MONEY
+  STRIPE
+  PAYPAL
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum DocumentType {
+  QUOTE
+  CONTRACT
+  INVOICE_PROFORMA
+  INVOICE_FINAL
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum NotificationType {
+  BOOKING_REQUEST
+  BOOKING_ACCEPTED
+  BOOKING_REFUSED
+  BOOKING_CANCELLED
+  COUNTER_OFFER
+  PAYMENT_RECEIVED
+  NEW_MESSAGE
+  REVIEW_RECEIVED
+  PROFILE_VALIDATED
+  DISPUTE_UPDATE
+  EVENT_REMINDER
+  SYSTEM
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+// ============ CORE ============
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  phone         String?      @unique
+  passwordHash  String?
+  firstName     String
+  lastName      String
+  role          UserRole     @default(CLIENT)
+  authProvider  AuthProvider @default(LOCAL)
+  providerId    String?
+  avatarUrl     String?
+  isEmailVerified Boolean    @default(false)
+  isPhoneVerified Boolean    @default(false)
+  isActive      Boolean      @default(true)
+  locale        String       @default("fr")
+
+  talentProfile TalentProfile?
+
+  bookingsAsClient   Booking[]      @relation("ClientBookings")
+  sentMessages       Message[]      @relation("MessageSender")
+  receivedMessages   Message[]      @relation("MessageRecipient")
+  reviewsWritten     Review[]       @relation("ReviewAuthor")
+  notifications      Notification[]
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  favorites          Favorite[]
+  emailVerificationCodes EmailVerificationCode[]
+  conversations         Conversation[]        @relation("ConversationParticipant")
+  conversationMessages  ConversationMessage[]  @relation("ConversationMessageAuthor")
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  tokenHash   String
+  revoked     Boolean  @default(false)
+  replacedBy  String?
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  codeHash   String
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_codes")
+}
+
+// ============ TALENTS ============
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  parentId    String?
+  children    Category[] @relation("CategoryTree")
+  commissionRate Decimal @default(10) @db.Decimal(5, 2)
+
+  talentProfiles TalentProfileCategory[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model TalentProfile {
+  id              String   @id @default(uuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @unique
+  stageName       String
+  bio             String?
+  location        String?
+  basePriceFrom   Decimal? @db.Decimal(12, 2)
+  coverImageUrl   String?
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  isPublished     Boolean  @default(false)
+  ratingAverage   Decimal  @default(0) @db.Decimal(3, 2)
+  ratingCount     Int      @default(0)
+  socialLinks     Json?
+  googleCalendarId String?
+
+  categories      TalentProfileCategory[]
+  media           Media[]
+  packages        ServicePackage[]
+  availabilities  Availability[]
+  bookings        Booking[]                @relation("ArtistBookings")
+  reviews         Review[]                 @relation("ReviewedTalent")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("talent_profiles")
+}
+
+model TalentProfileCategory {
+  talentProfile   TalentProfile @relation(fields: [talentProfileId], references: [id], onDelete: Cascade)
+  talentProfileId String
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId      String
+
+  @@id([talentProfileId, categoryId])
+  @@map("talent_profile_categories")
+}
+
+model Media {
+  id              String        @id @default(uuid())
+  talentProfile   TalentProfile @relation(fields: [talentProfileId], references: [id], onDelete: Cascade)
+  talentProfileId String
+  kind            MediaKind
+  url             String
+  publicId        String?
+  externalUrl     String?
+  position        Int           @default(0)
+  createdAt       DateTime      @default(now())
+
+  @@index([talentProfileId])
+  @@map("media")
+}
+
+model ServicePackage {
+  id              String        @id @default(uuid())
+  talentProfile   TalentProfile @relation(fields: [talentProfileId], references: [id], onDelete: Cascade)
+  talentProfileId String
+  name            String
+  description     String?
+  price           Decimal       @db.Decimal(12, 2)
+  durationMinutes Int?
+  isPopular       Boolean       @default(false)
+
+  bookings        Booking[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("service_packages")
+}
+
+model Availability {
+  id              String        @id @default(uuid())
+  talentProfile   TalentProfile @relation(fields: [talentProfileId], references: [id], onDelete: Cascade)
+  talentProfileId String
+  date            DateTime      @db.Date
+  isAvailable     Boolean       @default(true)
+
+  @@unique([talentProfileId, date])
+  @@map("availabilities")
+}
+
+// ============ BOOKINGS / PAYMENTS ============
+
+model Booking {
+  id              String         @id @default(uuid())
+  client          User           @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId        String
+  talentProfile   TalentProfile  @relation("ArtistBookings", fields: [talentProfileId], references: [id])
+  talentProfileId String
+  servicePackage  ServicePackage? @relation(fields: [servicePackageId], references: [id])
+  servicePackageId String?
+
+  eventDate       DateTime
+  location        String
+  technicalOptions Json?
+  status          BookingStatus  @default(PENDING)
+
+  subtotalAmount  Decimal        @db.Decimal(12, 2)
+  serviceFeeAmount Decimal       @db.Decimal(12, 2)
+  totalAmount     Decimal        @db.Decimal(12, 2)
+  commissionRate  Decimal        @db.Decimal(5, 2)
+
+  cancelledAt     DateTime?
+  cancellationReason String?
+  // Date d'envoi du rappel J-1 (cf. BookingRemindersService) — évite les doublons.
+  reminderSentAt  DateTime?
+
+  payments        Payment[]
+  documents       Document[]
+  review          Review?
+  dispute         Dispute?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([clientId])
+  @@index([talentProfileId])
+  @@map("bookings")
+}
+
+model Payment {
+  id            String          @id @default(uuid())
+  booking       Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId     String
+  provider      PaymentProvider
+  status        PaymentStatus   @default(PENDING)
+  amount        Decimal         @db.Decimal(12, 2)
+  currency      String          @default("XOF")
+  externalRef   String?
+  rawPayload    Json?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([bookingId])
+  @@map("payments")
+}
+
+model Document {
+  id          String       @id @default(uuid())
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId   String
+  type        DocumentType
+  fileUrl     String
+  number      String       @unique
+
+  createdAt   DateTime     @default(now())
+
+  @@index([bookingId])
+  @@map("documents")
+}
+
+model Dispute {
+  id          String    @id @default(uuid())
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId   String    @unique
+  reason      String
+  status      String    @default("OPEN")
+  resolution  String?
+  resolvedAt  DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("disputes")
+}
+
+// ============ SOCIAL ============
+
+model Review {
+  id              String        @id @default(uuid())
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId       String        @unique
+  author          User          @relation("ReviewAuthor", fields: [authorId], references: [id])
+  authorId        String
+  talentProfile   TalentProfile @relation("ReviewedTalent", fields: [talentProfileId], references: [id])
+  talentProfileId String
+  rating          Int
+  comment         String?
+
+  createdAt       DateTime      @default(now())
+
+  @@index([talentProfileId])
+  @@map("reviews")
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  senderId    String
+  recipient   User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  recipientId String
+  content     String
+  readAt      DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("messages")
+}
+
+// Messagerie de support : un fil unique par client/artiste, ouvert avec
+// "l'équipe admin" plutôt qu'avec un administrateur précis (n'importe quel
+// admin peut répondre, cf. RealtimeGateway.emitToRole).
+model Conversation {
+  id            String              @id @default(uuid())
+  participant   User                @relation("ConversationParticipant", fields: [participantId], references: [id], onDelete: Cascade)
+  participantId String              @unique
+  subject       String?
+  status        ConversationStatus  @default(OPEN)
+  lastMessageAt DateTime            @default(now())
+
+  messages      ConversationMessage[]
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  author         User         @relation("ConversationMessageAuthor", fields: [authorId], references: [id])
+  authorId       String
+  isAdminReply   Boolean      @default(false)
+  content        String
+  readAt         DateTime?
+
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@map("conversation_messages")
+}
+
+model Favorite {
+  id              String   @id @default(uuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  talentProfileId String
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, talentProfileId])
+  @@map("favorites")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  body      String
+  isRead    Boolean             @default(false)
+  metadata  Json?
+
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("audit_logs")
+}

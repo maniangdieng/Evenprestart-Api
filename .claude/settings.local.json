@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(docker version *)",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(wsl --shutdown)",
+      "PowerShell(wsl -- bash -c \"cd /mnt/c/Users/USER/Desktop/EVENTSPRESTART && docker compose up -d\")",
+      "PowerShell(wsl -- docker ps -a --filter \"name=eventprestart-api\")",
+      "PowerShell(wsl -- docker logs eventprestart-api --tail 30)",
+      "Bash(npx prisma *)",
+      "Bash(timeout 25 npm start)",
+      "Bash(timeout 20 npm start)",
+      "Bash(tail -40 /tmp_startlog.txt)",
+      "Bash(powershell -NoProfile -Command \"Test-NetConnection -ComputerName 127.0.0.1 -Port 5432 | Select-Object TcpTestSucceeded\")",
+      "PowerShell(wsl -- ip addr)",
+      "PowerShell(Get-NetConnectionProfile *)",
+      "PowerShell(Get-NetFirewallProfile *)",
+      "PowerShell(wsl -- docker ps --format \"table {{.Names}}\\\\t{{.Status}}\")",
+      "PowerShell(wsl -- docker logs eventprestart-postgres --tail 20)",
+      "PowerShell(wsl -- docker inspect eventprestart-postgres --format \"RestartCount={{.RestartCount}} OOMKilled={{.State.OOMKilled}} Status={{.State.Status}}\")",
+      "PowerShell(wsl -- docker exec eventprestart-api npx prisma generate)",
+      "PowerShell(wsl -- docker logs eventprestart-api --tail 15)",
+      "PowerShell(wsl -- docker inspect eventprestart-api --format \"RestartCount={{.RestartCount}} Status={{.State.Status}} StartedAt={{.State.StartedAt}}\")"
+    ]
+  }
+}
