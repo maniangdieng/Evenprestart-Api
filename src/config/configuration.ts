@@ -9,7 +9,13 @@ export default () => {
     env: process.env.NODE_ENV ?? 'development',
     port: parseInt(process.env.PORT ?? '3001', 10),
     apiPrefix: process.env.API_PREFIX ?? 'api',
-    corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    // Liste d'origines séparées par des virgules. Le « / » final est retiré :
+    // le navigateur envoie son origine sans slash et la comparaison CORS est
+    // exacte (« https://site.app/ » refuserait « https://site.app »).
+    corsOrigin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+      .split(',')
+      .map((origin) => origin.trim().replace(/\/+$/, ''))
+      .filter(Boolean),
     webUrl,
 
     database: {
