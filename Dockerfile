@@ -17,4 +17,5 @@ COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3001
 # Applique les migrations Prisma en attente avant de démarrer (idempotent).
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+# prisma/seed.ts étant compilé avec src/, la sortie est dist/src/main.js.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
