@@ -2,9 +2,12 @@
 // d'une base neuve, l'inscription publique n'autorisant que CLIENT et ARTIST.
 //
 // Usage : npm run admin:create -- <email> <mot-de-passe> [prénom] [nom]
-// (sur Render : onglet « Shell » du service eventprestart-api)
-import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+// (sur Render : onglet « Shell » du service de l'API)
+//
+// En JavaScript simple (pas TypeScript) pour tourner aussi dans l'image Docker
+// de production, où ts-node et les devDependencies ne sont pas installés.
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcrypt');
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -49,7 +52,7 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });
